@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "ceph_clean"
+version = "0.1.0"
+description = ""
+authors = ["Peter Woodman"]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+xattr = "^0.9.7"
+humanize = "^0.5.1"
+
+[tool.poetry.dev-dependencies]
+pylint = "^2.4"
+mypy = "^0.750.0"
+black = "^18.9b0"
+flake8 = "^3.7"
+
+[tool.black]
+line-length = 100
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
