@@ -4,18 +4,48 @@ from __future__ import print_function
 import os
 import shutil
 import sys
+import tempfile
+from collections import namedtuple
+from typing import Optional
 
-import xattr
-import humanize
+import xattr  # type: ignore
+import humanize  # type: ignore
+
+CephLayout = namedtuple("CephLayout", ["stripe_unit", "stripe_count", "object_size", "pool"])
 
 TMPDIR = "/c/scratch/convert"
 
-OK_POOLS = {
-    "cephfs_crs52data",
-    "cephfs_crs52data2",
-    "cephfs_crs52data3",
-    "cephfs_crs52data4",
-}
+OK_POOLS = {"cephfs_crs52data", "cephfs_crs52data2", "cephfs_crs52data3", "cephfs_crs52data4"}
+
+
+def extract_layout(filename: str) -> Optional[CephLayout]:
+    filetype = "file"
+    if os.path.isdir(filename):
+        filetype = "dir"
+    cephlayout = {}
+    try:
+        xattrs = (
+            xattr.getxattr(filename, "ceph.{}.layout".format(filetype))
+            .decode("utf-8")
+            .strip("'")
+            .split()
+        )
+    except OSError:
+        # no layout on given file/dir
+        return None
+    for attr in xattrs:
+        n = attr.split("=")
+        cephlayout[n[0]] = n[1]
+    print(cephlayout)
+    return CephLayout(**cephlayout)
+
+
+# make a temp dir with the same layout as the given dir
+def mkdtemp_layout(layout: CephLayout, prefix: str = "/c/tmp") -> str:
+    tempdir = tempfile.mkdtemp(dir=prefix)
+    for attr in layout._fields:
+        xattr.setxattr(tempdir, "ceph.dir.layout.{}".format(attr), getattr(layout, attr))
+    return tempdir
 
 
 def main():
@@ -25,11 +55,9 @@ def main():
     total_moved = 0
 
     print("starting scan of {}".format(startdir), file=sys.stderr)
-    for root, dirs, files in os.walk(startdir, topdown=False):
+    for root, _, files in os.walk(startdir, topdown=False):
         print("looking at {}".format(root), file=sys.stderr)
-        print(
-            "## total savings so far: {} ##".format(humanize.naturalsize(total_savings))
-        )
+        print("## total savings so far: {} ##".format(humanize.naturalsize(total_savings)))
         if root.startswith("/c/archive"):
             continue
         for name in files:
@@ -40,15 +68,11 @@ def main():
                 continue
             cephlayout = {}
             try:
-                for attr in (
-                    str(xattr.getxattr(filename, "ceph.file.layout")).strip("'").split()
-                ):
-                    # print(attr)
+                for attr in str(xattr.getxattr(filename, "ceph.file.layout")).strip("'").split():
                     n = str(attr).split("=")
                     cephlayout[str(n[0])] = str(n[1])
-            except IOError as e:
+            except IOError:
                 pass
-            # print(cephlayout)
             if "pool" in cephlayout.keys() and cephlayout["pool"] not in OK_POOLS:
                 print("%s in wrong pool: %s" % (name, cephlayout["pool"]))
                 statinfo = os.stat(filename)
@@ -63,8 +87,8 @@ def main():
                 total_moved += 1
                 total_savings += savings
                 print("saved {}".format(humanize.naturalsize(savings)))
-            # else:
-            #    pass
+            else:
+                pass
 
     print("saved space in total: {}".format(humanize.naturalsize(total_savings)))
 
