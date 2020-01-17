@@ -4,6 +4,7 @@ import shutil
 import sys
 import tempfile
 import functools
+import argparse
 
 # from collections import namedtuple
 from typing import Optional, NamedTuple
@@ -81,15 +82,17 @@ def mkdtemp_layout(layout: CephLayout, prefix: str = TMPDIR) -> str:
 
 def main():
     """entrypoint of script"""
-    startdir = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Ensure cephfs files match their directory layouts")
+    parser.add_argument('dir', help="directory to scan")
+    args = parser.parse_args()
 
     total_savings = 0
     total_moved = 0
 
     session_tmpdir = tempfile.mkdtemp(dir=TMPDIR)
 
-    print("starting scan of {}".format(startdir), file=sys.stderr)
-    for root, _, files in os.walk(startdir, topdown=False):
+    print("starting scan of {}".format(args.dir), file=sys.stderr)
+    for root, _, files in os.walk(args.dir, topdown=False):
         print("looking at {}".format(root), file=sys.stderr)
         print("## total savings so far: {} ##".format(humanize.naturalsize(total_savings)))
         dir_layout = extract_layout(root)
