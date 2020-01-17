@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import shutil
 import sys
@@ -6,26 +5,10 @@ import tempfile
 import functools
 import argparse
 
-# from collections import namedtuple
 from typing import Optional, NamedTuple
 
 import xattr  # type: ignore
 import humanize  # type: ignore
-
-TMPDIR = "/c/tmp"
-
-OK_POOLS = {"cephfs_crs52data", "cephfs_crs52data2"}
-
-
-class CephLayout(
-    NamedTuple("CephLayout", [("stripe_count", int), ("object_size", int), ("pool", str)])
-):
-    def __eq__(self, other):
-        return (
-            self.stripe_count == other.stripe_count
-            and self.object_size == other.object_size
-            and self.pool == other.pool
-        )
 
 
 def memoize(obj):
@@ -40,6 +23,25 @@ def memoize(obj):
         return cache[key]
 
     return memoizer
+
+
+class CephLayout(
+    NamedTuple("CephLayout", [("stripe_count", int), ("object_size", int), ("pool", str)])
+):
+    def __eq__(self, other):
+        return (
+            self.stripe_count == other.stripe_count
+            and self.object_size == other.object_size
+            and self.pool == other.pool
+        )
+
+
+class LayoutFixer(object):
+    def __init__(self):
+        self.LayoutDirs = {}
+
+    def fix_file_layout(self, file):
+        pass
 
 
 @memoize
@@ -71,7 +73,7 @@ def extract_layout(filename: str) -> Optional[CephLayout]:
 
 # make a temp dir with the same layout as the given dir
 @memoize
-def mkdtemp_layout(layout: CephLayout, prefix: str = TMPDIR) -> str:
+def mkdtemp_layout(layout: CephLayout, prefix: str) -> str:
     """Create temporary directory with the given layout"""
     tempdir = tempfile.mkdtemp(dir=prefix)
     xattrs = xattr.xattr(tempdir)
@@ -82,14 +84,17 @@ def mkdtemp_layout(layout: CephLayout, prefix: str = TMPDIR) -> str:
 
 def main():
     """entrypoint of script"""
-    parser = argparse.ArgumentParser(description="Ensure cephfs files match their directory layouts")
-    parser.add_argument('dir', help="directory to scan")
+    parser = argparse.ArgumentParser(
+        description="Ensure cephfs files match their directory layouts"
+    )
+    parser.add_argument("dir", help="directory to scan")
+    parser.add_argument("--tmpdir", default="/c/tmp", help="temporary directory to copy files to")
     args = parser.parse_args()
 
     total_savings = 0
     total_moved = 0
 
-    session_tmpdir = tempfile.mkdtemp(dir=TMPDIR)
+    session_tmpdir = tempfile.mkdtemp(dir=args.tmpdir)
 
     print("starting scan of {}".format(args.dir), file=sys.stderr)
     for root, _, files in os.walk(args.dir, topdown=False):
