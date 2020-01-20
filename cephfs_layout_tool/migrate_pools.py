@@ -82,6 +82,13 @@ def mkdtemp_layout(layout: CephLayout, prefix: str) -> str:
     return tempdir
 
 
+def relayout_file(filename, tmploc):
+    print("copying {} to temp location {}".format(filename, tmploc))
+    shutil.copy2(filename, tmploc)
+    print("moving back on top of original")
+    shutil.move(tmploc, filename)
+
+
 def main():
     """entrypoint of script"""
     parser = argparse.ArgumentParser(
@@ -98,10 +105,7 @@ def main():
 
     print("starting scan of {}".format(args.dir), file=sys.stderr)
     for root, _, files in os.walk(args.dir, topdown=False):
-        print("looking at {}".format(root), file=sys.stderr)
-        print("## total savings so far: {} ##".format(humanize.naturalsize(total_savings)))
         dir_layout = extract_layout(root)
-        print("layout for {}: {}".format(root, dir_layout))
         tmp_layout_dir = mkdtemp_layout(dir_layout, prefix=session_tmpdir)
         for name in files:
             filename = os.path.join(root, name)
@@ -114,10 +118,6 @@ def main():
                 continue
             if dir_layout != file_layout:
                 print("file layout doesn't match dir layout: {}".format(file_layout))
-                tmploc = os.path.join(tmp_layout_dir, name)
-                relayout_file(filename, tmploc)
-            if dir_layout.pool != file_layout.pool:
-                print("%s in wrong pool: %s" % (name, file_layout.pool))
                 statinfo = os.stat(filename)
                 tmploc = os.path.join(tmp_layout_dir, name)
                 relayout_file(filename, tmploc)
@@ -126,18 +126,6 @@ def main():
                 savings = oldusage - newusage
                 total_moved += 1
                 total_savings += savings
-                print("saved {}".format(humanize.naturalsize(savings)))
 
     print("saved space in total: {}".format(humanize.naturalsize(total_savings)))
     shutil.rmtree(session_tmpdir)
-
-
-def relayout_file(filename, tmploc):
-    print("copying {} to temp location {}".format(filename, tmploc))
-    shutil.copy2(filename, tmploc)
-    print("moving back on top of original")
-    shutil.move(tmploc, filename)
-
-
-if __name__ == "__main__":
-    main()
