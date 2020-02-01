@@ -1,9 +1,10 @@
+import argparse
+import functools
+import logging
 import os
 import shutil
 import sys
 import tempfile
-import functools
-import argparse
 
 from typing import Optional, NamedTuple
 
@@ -13,6 +14,7 @@ import humanize  # type: ignore
 
 def memoize(obj):
     """Decorator to memoize a function."""
+    # blatantly ripped off of the first google result
     cache = obj.cache = {}
 
     @functools.wraps(obj)
@@ -34,14 +36,6 @@ class CephLayout(
             and self.object_size == other.object_size
             and self.pool == other.pool
         )
-
-
-class LayoutFixer(object):
-    def __init__(self):
-        self.LayoutDirs = {}
-
-    def fix_file_layout(self, file):
-        pass
 
 
 @memoize
@@ -83,9 +77,9 @@ def mkdtemp_layout(layout: CephLayout, prefix: str) -> str:
 
 
 def relayout_file(filename, tmploc):
-    print("copying {} to temp location {}".format(filename, tmploc))
+    logging.info("copying {} to temp location {}".format(filename, tmploc))
     shutil.copy2(filename, tmploc)
-    print("moving back on top of original")
+    logging.info("moving back on top of original")
     shutil.move(tmploc, filename)
 
 
@@ -96,36 +90,43 @@ def main():
     )
     parser.add_argument("dir", help="directory to scan")
     parser.add_argument("--tmpdir", default="/c/tmp", help="temporary directory to copy files to")
+    parser.add_argument("--debug", "-d", action="store_true")
     args = parser.parse_args()
+
+    if args.debug:
+        loglevel = logging.DEBUG
+    else:
+        loglevel = logging.INFO
+    logging.basicConfig(stream=sys.stdout, level=loglevel)
 
     total_savings = 0
     total_moved = 0
 
     session_tmpdir = tempfile.mkdtemp(dir=args.tmpdir)
 
-    print("starting scan of {}".format(args.dir), file=sys.stderr)
+    logging.info("starting scan of {}".format(args.dir))
     for root, _, files in os.walk(args.dir, topdown=False):
         dir_layout = extract_layout(root)
         tmp_layout_dir = mkdtemp_layout(dir_layout, prefix=session_tmpdir)
         for name in files:
             filename = os.path.join(root, name)
-            fstat = os.stat(filename)
-            if fstat.st_nlink > 1:
-                print("skipping {} due to multiple hard links".format(name))
-                continue
+
             file_layout = extract_layout(filename)
             if not file_layout:
                 continue
             if dir_layout != file_layout:
-                print("file layout doesn't match dir layout: {}".format(file_layout))
-                statinfo = os.stat(filename)
+                fstat = os.stat(filename)
+                if fstat.st_nlink > 1:
+                    logging.debug("skipping {} due to multiple hard links".format(name))
+                    continue
+                logging.info("file layout doesn't match dir layout: {}".format(file_layout))
                 tmploc = os.path.join(tmp_layout_dir, name)
                 relayout_file(filename, tmploc)
-                oldusage = (statinfo.st_size / 4) * 6
-                newusage = (statinfo.st_size / 5) * 7
+                oldusage = (fstat.st_size / 4) * 6
+                newusage = (fstat.st_size / 5) * 7
                 savings = oldusage - newusage
                 total_moved += 1
                 total_savings += savings
 
-    print("saved space in total: {}".format(humanize.naturalsize(total_savings)))
+    logging.info("saved space in total: {}".format(humanize.naturalsize(total_savings)))
     shutil.rmtree(session_tmpdir)

@@ -1,0 +1,5 @@
+.mypy_cache
+.vscode
+cephfs_layout_tool.egg-info/
+dist
+__pycache__
