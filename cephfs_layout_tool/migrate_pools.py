@@ -5,11 +5,10 @@ import os
 import shutil
 import sys
 import tempfile
+from typing import NamedTuple, Optional
 
-from typing import Optional, NamedTuple
-
-import xattr  # type: ignore
 import humanize  # type: ignore
+import xattr  # type: ignore
 
 
 def memoize(obj):

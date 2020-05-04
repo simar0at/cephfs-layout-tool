@@ -257,7 +257,7 @@ version = "0.9.7"
 cffi = ">=1.0.0"
 
 [metadata]
-content-hash = "6414e2b518cecb339560cd3826a8f1a5fbc2ad859ac89e3fb9b1a5c88afdab7f"
+content-hash = "010672382cda861f2595e1a123e1570a7e756d31aef31458252a2410b1e48a84"
 python-versions = "^3.6"
 
 [metadata.files]
