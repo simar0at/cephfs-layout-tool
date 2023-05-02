@@ -98,7 +98,6 @@ def main():
         loglevel = logging.INFO
     logging.basicConfig(stream=sys.stdout, level=loglevel)
 
-    total_savings = 0
     total_moved = 0
 
     session_tmpdir = tempfile.mkdtemp(dir=args.tmpdir)
@@ -121,11 +120,6 @@ def main():
                 logging.info("file layout doesn't match dir layout: {}".format(file_layout))
                 tmploc = os.path.join(tmp_layout_dir, name)
                 relayout_file(filename, tmploc)
-                oldusage = (fstat.st_size / 4) * 6
-                newusage = (fstat.st_size / 5) * 7
-                savings = oldusage - newusage
                 total_moved += 1
-                total_savings += savings
 
-    logging.info("saved space in total: {}".format(humanize.naturalsize(total_savings)))
     shutil.rmtree(session_tmpdir)
