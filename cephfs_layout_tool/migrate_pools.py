@@ -78,11 +78,12 @@ def mkdtemp_layout(layout: CephLayout, prefix: str) -> str:
 
 def relayout_file(filename, tmploc):
     logging.info("copying {} to temp location {}".format(filename, tmploc))
-    shutil.copy2(filename, tmploc)
-    logging.info("moving back on top of original")
-    # shutil.move(tmploc, filename) or any python file copy function does not work here (anymore).
-    # The data would end up on the same pool it came from.
+    # shutil.copy2(filename, tmploc) or any python file copy function does not work here (anymore).
+    # The data would end up on the same pool it came from and user and group are lost.
     # Is this a side effect of the sendfile zero copy trick?
+    subprocess.run(['cp', '-a', filename, tmploc])
+    logging.info("moving back on top of original")
+    # shutil.move(tmploc, filename)
     subprocess.run(['mv', tmploc, filename])
 
 def main():
